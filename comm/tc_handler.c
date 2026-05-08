@@ -1,4 +1,5 @@
 #include "pus.h"
+#include "system.h"
 #include <stdio.h>
 
 // forward
@@ -10,10 +11,36 @@ void handle_tc(pus_packet_t* pkt)
 
     switch (pkt->header.service)
     {
+        case 1: // Power control
+            switch (pkt->header.subtype)
+            {
+                case 1: // Switch ON
+                    printf("[TC] SWITCH ON command received\n");
+                    system_power_on();
+                    send_tm(1, 1, NULL, 0); // ACK
+                    break;
+
+                case 2: // Enable Data
+                    printf("[TC] ENABLE DATA command received\n");
+                    system_enable_data();
+                    send_tm(1, 2, NULL, 0); // ACK
+                    break;
+
+                case 3: // Shutdown
+                    printf("[TC] SHUTDOWN command received\n");
+                    system_shutdown();
+                    send_tm(1, 3, NULL, 0); // ACK
+                    break;
+
+                default:
+                    printf("[TC] Unknown power control subtype\n");
+                    send_tm(1, 8, NULL, 0); // NACK
+                    break;
+            }
+            break;
+
         case 17: // test
             printf("[TC] Test command received\n");
-
-            // risposta ACK
             send_tm(1, 1, NULL, 0);
             break;
 

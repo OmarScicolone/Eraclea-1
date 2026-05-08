@@ -2,7 +2,8 @@
 CC = gcc
 
 # Flags
-CFLAGS = -Wall -Wextra -std=c11 -pthread -Icore -Isensor -Idata -Iplatform -Icomm -Itasks
+CFLAGS = -Wall -Wextra -std=c11 -pthread -Icore -Isensor -Idata -Iplatform -Icomm -Iground -Itasks
+
 LDFLAGS = -pthread
 
 # Nome eseguibile

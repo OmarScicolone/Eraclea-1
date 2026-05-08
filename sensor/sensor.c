@@ -11,12 +11,12 @@ void sensor_init(void)
 int sensor_read(int *data)
 {
     if (!data)
-        return -1;
+        return SENSOR_ERROR;
 
     // errore simulato
     if (counter++ % 10 == 0)
-        return -1;
+        return SENSOR_ERROR;
 
     *data = rand() % 100;
-    return 0;
+    return SENSOR_OK;
 }
