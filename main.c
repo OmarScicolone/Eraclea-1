@@ -1,14 +1,14 @@
 #include <pthread.h>
-#include "system.h"
 #include "platform.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include "system.h"
 
 int main(void)
 {
-    printf("🚀 ERACLEA-1 Satellite Simulator Starting...\n");
+    printf("ERACLEA-1 Satellite Control Interface starting... 🛰️\n");
 
     srand(time(NULL));
     system_init();
@@ -24,23 +24,27 @@ int main(void)
 
         switch (choice) {
             case 0: // Exit
-                printf("👋 Exiting ERACLEA-1 Simulator. Goodbye!\n");
+                printf("Exiting ERACLEA-1 Control Interface. Goodbye!\n");
                 if (threads_created) {
+                    printf("Shutting down satellite systems...\n");
                     system_shutdown();
-                    sleep(2);
+                    pthread_join(t_sensor, NULL);
+                    pthread_join(t_processing, NULL);
+                    pthread_join(t_health, NULL);
+                    pthread_join(t_tm_sender, NULL);
                 }
                 return 0;
 
-            case 1: // Switch ON
+            case 1: // Activate
                 if (!threads_created) {
-                    printf("🚀 Starting satellite systems...\n");
+                    printf("Starting satellite systems...\n");
                     system_power_on();
                     pthread_create(&t_sensor, NULL, sensor_task, NULL);
                     pthread_create(&t_processing, NULL, processing_task, NULL);
                     pthread_create(&t_health, NULL, health_task, NULL);
                     pthread_create(&t_tm_sender, NULL, tm_sender_task, NULL);
                     threads_created = 1;
-                    printf("✅ Satellite systems online!\n");
+                    printf("Satellite systems online!\n");
                 } else {
                     printf("⚠️  Satellite already running! ⚠️\n");
                 }
@@ -48,7 +52,7 @@ int main(void)
 
             case 2: // Enable Data
                 if (threads_created) {
-                    printf("📊 Enabling data acquisition...\n");
+                    printf("Enabling data acquisition...\n");
                     system_enable_data();
                 } else {
                     printf("⚠️  Satellite not switched on! ⚠️\n");
@@ -57,31 +61,30 @@ int main(void)
 
             case 3: // Disable Data
                 if (threads_created) {
-                    printf("📊 Disabling data acquisition...\n");
+                    printf("Disabling data acquisition...\n");
                     system_disable_data();
                 } else {
                     printf("⚠️  Satellite not switched on! ⚠️\n");
                 }
                 break;
 
-            case 4: // Shutdown
+            case 4: // Enter Idle
                 if (threads_created) {
-                    printf("🛑 Shutting down satellite...\n");
-                    system_shutdown();
+                    printf("Putting satellite into idle...\n");
                     pthread_join(t_sensor, NULL);
                     pthread_join(t_processing, NULL);
                     pthread_join(t_health, NULL);
                     pthread_join(t_tm_sender, NULL);
-                    system_power_off();
+                    system_in_idle();
                     threads_created = 0;
-                    printf("✅ Satellite shutdown complete!\n");
+                    printf("Satellite into idle complete!\n");
                 } else {
                     printf("⚠️  Satellite not running! ⚠️\n");
                 }
                 break;
 
             default:
-                printf("❌ Invalid option! Choose 0-4.\n");
+                printf("Invalid option! Choose 0-4.\n");
                 break;
         }
 

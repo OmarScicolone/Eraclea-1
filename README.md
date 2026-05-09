@@ -1,129 +1,93 @@
 # Eraclea-1
 
-🛰️ **Simulatore di Satellite Spaziale Eraclea-1**
+Eraclea-1 is a satellite mission simulator implemented in C. It models core onboard software behavior using multithreaded tasks, a state machine, and a PUS-style telecommand/telemetry interface.
 
-Un simulatore completo di un satellite spaziale che implementa il protocollo PUS (Packet Utilization Standard) utilizzato dalle agenzie spaziali come ESA.
+## Overview
 
-## 🚀 Caratteristiche
+This project simulates the onboard environment of a satellite already in orbit. The simulator exposes a console interface to control the satellite state and manage data acquisition.
 
-### Sistema Multi-Task
-- **Sensor Task**: Raccolta dati da sensori simulati
-- **Processing Task**: Elaborazione dati e generazione telemetria
-- **Health Task**: Monitoraggio stato sistema e telecomandi
-- **TM Sender Task**: Invio telemetria verso terra
+Key features:
+- multithreaded task architecture
+- simulated sensor acquisition and data processing
+- telemetry management with circular buffer
+- telecommand handling through a PUS-like interface
+- ground station simulation for command injection and telemetry output
 
-### Protocollo PUS
-- Implementazione completa del protocollo PUS per telecomandi (TC) e telemetria (TM)
-- Buffer circolari thread-safe per comunicazione
-- Gestione errori e ACK/NACK
-
-## Come Usare
-
-### Avvio
-```bash
-make
-./eraclea1
-```
-
-### Sequenza Operativa
-1. **Accendi il satellite** (opzione 1) - Avvia tutti i sistemi
-2. **Abilita acquisizione dati** (opzione 2) - I sensori iniziano a raccogliere dati
-3. **Monitora lo stato** (opzione 5) - Controlla il funzionamento
-4. **Spegni il sistema** (opzione 3) - Arresto sicuro
-
-### Telecomandi Disponibili
-- **Service 1**: Controllo potenza
-  - Subtype 1: Switch ON
-  - Subtype 2: Enable Data
-  - Subtype 3: Shutdown
-- **Service 17**: Test
-- **Service 3**: Housekeeping
-
-## 🏗️ Architettura
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   SENSORS       │ -> │     BUFFER      │ -> │   PROCESSING    │
-│   (Thread)      │    │   (Circular)    │    │   (Thread)      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                        │
-                                                        ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   TM MANAGER    │ <- │   TC HANDLER    │    │   HEALTH TASK   │
-│   (Buffer)      │    │   (Commands)    │    │   (Monitor)     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                        │
-                                                        ▼
-┌─────────────────┐
-│   GROUND OUTPUT │
-│   (Telemetry)   │
-└─────────────────┘
-```
-
-## 📁 Struttura Progetto
-
-```
-eraclea-1/
-├── main.c              # Entry point con menu interattivo
-├── Makefile            # Build system
-├── README.md           # Questa documentazione
-├── core/
-│   ├── system.c        # Sistema principale e stati
-│   └── system.h        # Header sistema
-├── comm/
-│   ├── pus.h           # Definizioni PUS
-│   ├── pus.c           # Utilità PUS
-│   ├── tc_handler.c    # Gestore telecomandi
-│   ├── tc_handler.h    # Header TC handler
-│   ├── tm_manager.c    # Gestore telemetria
-│   └── tm_manager.h    # Header TM manager
-├── data/
-│   ├── buffer.c        # Buffer circolare
-│   └── buffer.h        # Header buffer
-├── sensor/
-│   ├── sensor.c        # Simulazione sensori
-│   └── sensor.h        # Header sensori
-├── platform/
-│   ├── platform.c      # Astrazione piattaforma
-│   └── platform.h      # Header platform
-└── ground/
-    ├── ground_sim.c    # Simulazione stazione terra
-    └── ground_sim.h    # Header ground sim
-```
-
-## 🔧 Compilazione
+## Build
 
 ```bash
 make clean
 make
 ```
 
-## 🧪 Test
+## Run
 
 ```bash
-./test_demo.sh  # Script di test automatico
+./eraclea1
 ```
 
-## 📊 Stati del Sistema
+## Runtime Flow
 
-- **POWER_OFF**: Sistema spento, nessuna attività
-- **POWER_ON**: Sistema acceso ma acquisizione dati disabilitata
-- **DATA_ENABLED**: Acquisizione e processamento attivi
-- **ERROR**: Stato di errore
-- **SHUTDOWN**: Spegnimento in corso
+The interface starts with the satellite in idle state. The available console commands are:
 
-## 🎯 Protocollo PUS
+1. **ACTIVATE** - activate satellite systems and start the onboard software
+2. **ENABLE DATA** - enable sensor data acquisition and processing
+3. **DISABLE DATA** - disable data acquisition
+4. **ENTER IDLE** - put the satellite into idle
+0. **EXIT** - exit the control interface
 
-Il sistema implementa il **Packet Utilization Standard (PUS)** utilizzato nei satelliti reali:
+## System States
 
-- **Telecomandi (TC)**: Comandi dalla terra al satellite
-- **Telemetria (TM)**: Dati dal satellite alla terra
-- **Servizi standard**: Test, housekeeping, controllo potenza
+The satellite state machine includes:
 
-## 🤝 Contributi
+- **SYS_IDLE**: system in idle, powered but inactive
+- **SYS_ACTIVE**: system powered and ready, but data acquisition disabled
+- **SYS_DATA_ENABLED**: data acquisition and processing are active
+- **SYS_ERROR**: error state (reserved for future use)
+- **SYS_SHUTDOWN**: shutdown in progress, tasks terminate gracefully
 
-Progetto educativo per dimostrare concetti di:
-- Sistemi embedded real-time
-- Programmazione multi-thread
-- Protocolli di comunicazione spaziale
-- Architetture software robuste
+## Telecommands and Telemetry
+
+The simulator supports a simple PUS-style command and telemetry mechanism.
+
+- **TC (TeleCommand)**: commands sent from the ground segment to the satellite
+- **TM (TeleMetry)**: data packets sent from the satellite to the ground segment
+
+Ground commands are generated by the ground simulation module, and telemetry output is printed to the console.
+
+## Project Structure
+
+```
+eraclea-1/
+├── main.c              # Entry point and console interface
+├── Makefile            # Build system
+├── README.md           # Project documentation
+├── core/
+│   ├── system.c        # Main state machine and task coordination
+│   └── system.h        # System state definitions and interfaces
+├── comm/
+│   ├── pus.h           # PUS definitions
+│   ├── pus.c           # PUS utilities
+│   ├── tc_handler.c    # Telecommand handler
+│   ├── tc_handler.h    # TC handler interface
+│   ├── tm_manager.c    # Telemetry manager
+│   └── tm_manager.h    # TM manager interface
+├── data/
+│   ├── buffer.c        # Circular buffer implementation
+│   └── buffer.h        # Buffer interface
+├── sensor/
+│   ├── sensor.c        # Sensor simulation
+│   └── sensor.h        # Sensor interface
+├── platform/
+│   ├── platform.c      # Platform abstraction layer
+│   └── platform.h      # Platform interface
+└── ground/
+    ├── ground_sim.c    # Ground segment simulator
+    └── ground_sim.h    # Ground simulation interface
+```
+
+## Notes
+
+- The simulator is designed for educational use and to demonstrate embedded software concepts.
+- The ground simulation module can inject commands and display telemetry to validate the satellite state transitions.
+- The current implementation includes basic state management, but some states and command types are reserved for future expansion.

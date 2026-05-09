@@ -6,16 +6,16 @@
 #define COMMAND_INVALID (-1)
 
 typedef enum {
-    SYS_IDLE,         // Sistema in standby
-    SYS_OPERATIVE,    // Acceso ma senza acquisizione dati
-    SYS_DATA_ENABLED, // Acquisizione e processamento attivi
-    SYS_ERROR,        // Stato di errore
-    SYS_SHUTDOWN      // Spegnimento in corso
+    SYS_IDLE,         // System in idle
+    SYS_ACTIVE,       // Powered and ready, but data acquisition disabled
+    SYS_DATA_ENABLED, // Data acquisition and processing active
+    SYS_ERROR,        // Error state
+    SYS_SHUTDOWN      // Shutdown in progress
 } system_state_t;
 
 void system_init(void);
 void system_power_on(void);
-void system_power_off(void);
+void system_in_idle(void);
 void system_enable_data(void);
 void system_disable_data(void);
 void system_shutdown(void);

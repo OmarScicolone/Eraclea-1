@@ -29,14 +29,14 @@ void system_power_on(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_IDLE) {
-        current_state = SYS_OPERATIVE;
+        current_state = SYS_ACTIVE;
         error_flag = 0;
-        printf("[SYSTEM] Operative - Ready for data acquisition\n");
+        printf("[SYSTEM] Active - Ready for data acquisition\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
 
-void system_power_off(void)
+void system_in_idle(void)
 {
     pthread_mutex_lock(&state_mutex);
     current_state = SYS_IDLE;
@@ -47,7 +47,7 @@ void system_power_off(void)
 void system_enable_data(void)
 {
     pthread_mutex_lock(&state_mutex);
-    if (current_state == SYS_OPERATIVE) {
+    if (current_state == SYS_ACTIVE) {
         current_state = SYS_DATA_ENABLED;
         printf("[SYSTEM] Data acquisition ENABLED\n");
     }
@@ -58,7 +58,7 @@ void system_disable_data(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_DATA_ENABLED) {
-        current_state = SYS_OPERATIVE;
+        current_state = SYS_ACTIVE;
         printf("[SYSTEM] Data acquisition DISABLED\n");
     }
     pthread_mutex_unlock(&state_mutex);
@@ -84,7 +84,7 @@ const char* state_to_string(system_state_t state)
 {
     switch (state) {
         case SYS_IDLE: return "SYS_IDLE";
-        case SYS_OPERATIVE: return "SYS_OPERATIVE";
+        case SYS_ACTIVE: return "SYS_ACTIVE";
         case SYS_DATA_ENABLED: return "SYS_DATA_ENABLED";
         case SYS_ERROR: return "SYS_ERROR";
         case SYS_SHUTDOWN: return "SYS_SHUTDOWN";
@@ -112,7 +112,7 @@ void* sensor_task(void* arg)
             case SYS_IDLE:
                 break;
 
-            case SYS_OPERATIVE:
+            case SYS_ACTIVE:
                 break;
 
             case SYS_DATA_ENABLED:
@@ -190,7 +190,7 @@ void* health_task(void* arg)
             return NULL;
         }
 
-        platform_delay_ms(3000);
+        platform_delay_ms(1000);
     }
 
     return NULL;
@@ -226,15 +226,15 @@ void* tm_sender_task(void* arg)
 void show_satellite_menu(void)
 {
     printf("\n");
-    printf("===================== ERACLEA-1 SATELLITE SIMULATOR =====================\n");
+    printf("===================== ERACLEA-1 SATELLITE CONTROL =====================\n");
     printf("\n");
-    printf("1) SWITCH ON      - Accendi il satellite\n");
-    printf("2) ENABLE DATA    - Abilita acquisizione e processamento dati\n");
-    printf("3) DISABLE DATA   - Disabilita acquisizione dati (rimane acceso)\n");
-    printf("4) SHUTDOWN       - Spegni il satellite\n");
-    printf("0) EXIT           - Esci dal simulatore\n");
+    printf("1) ACTIVATE       - Activate satellite systems\n");
+    printf("2) ENABLE DATA    - Enable data acquisition and processing\n");
+    printf("3) DISABLE DATA   - Disable data acquisition\n");
+    printf("4) ENTER IDLE     - Put the satellite into idle\n");
+    printf("0) EXIT           - Exit the control interface\n");
     printf("\n");
-    printf("Scegli un'opzione (0-4): \n");
+    printf("Choose an option (0-4): \n");
 }
 
 int get_user_command(void)
