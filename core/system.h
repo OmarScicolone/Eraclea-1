@@ -6,8 +6,8 @@
 #define COMMAND_INVALID (-1)
 
 typedef enum {
-    SYS_POWER_OFF,    // Sistema spento
-    SYS_POWER_ON,     // Acceso ma senza acquisizione dati
+    SYS_IDLE,         // Sistema in standby
+    SYS_OPERATIVE,    // Acceso ma senza acquisizione dati
     SYS_DATA_ENABLED, // Acquisizione e processamento attivi
     SYS_ERROR,        // Stato di errore
     SYS_SHUTDOWN      // Spegnimento in corso

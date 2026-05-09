@@ -21,17 +21,17 @@ void system_init(void)
     sensor_init();
     buffer_init();
     tm_buffer_init();
-    current_state = SYS_POWER_OFF;
-    printf("[SYSTEM] Initialized - Power OFF\n");
+    current_state = SYS_IDLE;
+    printf("[SYSTEM] Initialized - Idle\n");
 }
 
 void system_power_on(void)
 {
     pthread_mutex_lock(&state_mutex);
-    if (current_state == SYS_POWER_OFF || current_state == SYS_SHUTDOWN) {
-        current_state = SYS_POWER_ON;
+    if (current_state == SYS_IDLE) {
+        current_state = SYS_OPERATIVE;
         error_flag = 0;
-        printf("[SYSTEM] Power ON - Ready for data acquisition\n");
+        printf("[SYSTEM] Operative - Ready for data acquisition\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
@@ -39,7 +39,7 @@ void system_power_on(void)
 void system_power_off(void)
 {
     pthread_mutex_lock(&state_mutex);
-    current_state = SYS_POWER_OFF;
+    current_state = SYS_IDLE;
     error_flag = 0;
     pthread_mutex_unlock(&state_mutex);
 }
@@ -47,7 +47,7 @@ void system_power_off(void)
 void system_enable_data(void)
 {
     pthread_mutex_lock(&state_mutex);
-    if (current_state == SYS_POWER_ON) {
+    if (current_state == SYS_OPERATIVE) {
         current_state = SYS_DATA_ENABLED;
         printf("[SYSTEM] Data acquisition ENABLED\n");
     }
@@ -58,7 +58,7 @@ void system_disable_data(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_DATA_ENABLED) {
-        current_state = SYS_POWER_ON;
+        current_state = SYS_OPERATIVE;
         printf("[SYSTEM] Data acquisition DISABLED\n");
     }
     pthread_mutex_unlock(&state_mutex);
@@ -83,8 +83,8 @@ system_state_t system_get_state(void)
 const char* state_to_string(system_state_t state)
 {
     switch (state) {
-        case SYS_POWER_OFF: return "SYS_POWER_OFF";
-        case SYS_POWER_ON: return "SYS_POWER_ON";
+        case SYS_IDLE: return "SYS_IDLE";
+        case SYS_OPERATIVE: return "SYS_OPERATIVE";
         case SYS_DATA_ENABLED: return "SYS_DATA_ENABLED";
         case SYS_ERROR: return "SYS_ERROR";
         case SYS_SHUTDOWN: return "SYS_SHUTDOWN";
@@ -96,7 +96,7 @@ void* sensor_task(void* arg)
 {
     (void)arg;
     int data;
-    system_state_t last_state = SYS_POWER_OFF;
+    system_state_t last_state = SYS_IDLE;
 
     while (1) {
         pthread_mutex_lock(&state_mutex);
@@ -109,10 +109,10 @@ void* sensor_task(void* arg)
         }
 
         switch (state) {
-            case SYS_POWER_OFF:
+            case SYS_IDLE:
                 break;
 
-            case SYS_POWER_ON:
+            case SYS_OPERATIVE:
                 break;
 
             case SYS_DATA_ENABLED:
@@ -166,7 +166,7 @@ void* health_task(void* arg)
 {
     (void)arg;
     int tc_counter = 0;
-    system_state_t last_state = SYS_POWER_OFF;
+    system_state_t last_state = SYS_IDLE;
     int last_error = 0;
 
     while (1) {

@@ -42,7 +42,7 @@ int main(void)
                     threads_created = 1;
                     printf("✅ Satellite systems online!\n");
                 } else {
-                    printf("⚠️  Satellite already running!\n");
+                    printf("⚠️  Satellite already running! ⚠️\n");
                 }
                 break;
 
@@ -51,7 +51,7 @@ int main(void)
                     printf("📊 Enabling data acquisition...\n");
                     system_enable_data();
                 } else {
-                    printf("⚠️ Satellite not switched on.\n");
+                    printf("⚠️  Satellite not switched on! ⚠️\n");
                 }
                 break;
 
@@ -60,7 +60,7 @@ int main(void)
                     printf("📊 Disabling data acquisition...\n");
                     system_disable_data();
                 } else {
-                    printf("⚠️ Satellite not switched on.\n");
+                    printf("⚠️  Satellite not switched on! ⚠️\n");
                 }
                 break;
 
@@ -76,7 +76,7 @@ int main(void)
                     threads_created = 0;
                     printf("✅ Satellite shutdown complete!\n");
                 } else {
-                    printf("⚠️  Satellite not running!\n");
+                    printf("⚠️  Satellite not running! ⚠️\n");
                 }
                 break;
 
