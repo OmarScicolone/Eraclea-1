@@ -57,4 +57,16 @@ typedef enum {
 // ── Service 129 — Sensor Data (custom) ───────────────────────────────────────
 #define PUS_TM_SENSOR_READING  1   // TM: single sensor measurement (2 bytes, LE int16)
 
+// ── Human-readable TC description (shared between OBC and ground) ─────────────
+static inline const char* pus_tc_describe(uint8_t svc, uint8_t sub)
+{
+    if (svc == PUS_SVC_TEST      && sub == PUS_TC_ARE_YOU_ALIVE)   return "Connection Test: Are-You-Alive";
+    if (svc == PUS_SVC_HK        && sub == PUS_TC_HK_REQUEST)      return "Housekeeping: Report Request";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_ACTIVATE)        return "Mode Control: Activate";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_START_DOWNLINK)  return "Mode Control: Start Downlink";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_STOP_DOWNLINK)   return "Mode Control: Stop Downlink";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_DEACTIVATE)      return "Mode Control: Deactivate";
+    return "Unknown TC";
+}
+
 #endif

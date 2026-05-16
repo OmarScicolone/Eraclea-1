@@ -20,7 +20,8 @@ OBC_SRCS = \
 GROUND_SRCS = \
     ground_main.c \
     comm/link.c \
-    ground/ground_output.c
+    ground/ground_output.c \
+    platform/platform.c
 
 OBC_OBJS    = $(OBC_SRCS:.c=.o)
 GROUND_OBJS = $(GROUND_SRCS:.c=.o)

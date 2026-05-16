@@ -34,7 +34,7 @@ static void deserialize(const uint8_t* buf, pus_packet_t* pkt)
     memcpy(pkt->data, buf + 6, 32);
 }
 
-int link_obc_listen(void)
+int link_obc_init(void)
 {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -43,7 +43,11 @@ int link_obc_listen(void)
     }
 
     int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("[LINK] setsockopt");
+        close(server_fd);
+        return -1;
+    }
 
     struct sockaddr_in addr = {0};
     addr.sin_family      = AF_INET;
@@ -61,9 +65,12 @@ int link_obc_listen(void)
         return -1;
     }
 
-    int client_fd = accept(server_fd, NULL, NULL);
-    close(server_fd);
-    return client_fd;
+    return server_fd;
+}
+
+int link_obc_accept(int server_fd)
+{
+    return accept(server_fd, NULL, NULL);
 }
 
 int link_ground_connect(void)
@@ -91,8 +98,14 @@ int link_send_pkt(int fd, const pus_packet_t* pkt)
 {
     uint8_t buf[PKT_SIZE];
     serialize(pkt, buf);
-    ssize_t n = send(fd, buf, PKT_SIZE, 0);
-    return (n == PKT_SIZE) ? 0 : -1;
+    ssize_t total = 0;
+    while (total < PKT_SIZE) {
+        ssize_t n = send(fd, buf + total, PKT_SIZE - total, 0);
+        if (n <= 0)
+            return -1;
+        total += n;
+    }
+    return 0;
 }
 
 int link_recv_pkt(int fd, pus_packet_t* pkt)
@@ -111,5 +124,6 @@ int link_recv_pkt(int fd, pus_packet_t* pkt)
 
 void link_close(int fd)
 {
+    shutdown(fd, SHUT_RDWR);
     close(fd);
 }

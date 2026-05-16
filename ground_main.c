@@ -1,10 +1,9 @@
-#define _XOPEN_SOURCE 600
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include "link.h"
 #include "pus.h"
+#include "platform.h"
 #include "ground_output.h"
 
 static int            obc_fd       = -1;
@@ -30,7 +29,7 @@ static void send_tc(uint8_t service, uint8_t subtype)
     pkt.header.length  = 0;
     memset(pkt.data, 0, sizeof(pkt.data));
     if (link_send_pkt(obc_fd, &pkt) < 0)
-        fprintf(stderr, "[GROUND] Failed to send TC[%d,%d]\n", service, subtype);
+        fprintf(stderr, "Failed to send TC[%d,%d]\n", service, subtype);
 }
 
 static void* tm_receiver(void* arg)
@@ -41,7 +40,6 @@ static void* tm_receiver(void* arg)
         print_tm_output(pkt.header.service, pkt.header.subtype,
                         pkt.data, pkt.header.length);
     }
-    printf("[GROUND] TM stream closed.\n");
     return NULL;
 }
 
@@ -73,15 +71,15 @@ static int read_choice(void)
 
 int main(void)
 {
-    printf("[GROUND] ERACLEA-1 Ground Control starting...\n");
+    printf("ERACLEA-1 Ground Control starting...\n");
 
     obc_fd = link_ground_connect();
     if (obc_fd < 0) {
-        fprintf(stderr, "[GROUND] Cannot connect to OBC on %s:%d. Is it running?\n",
+        fprintf(stderr, "Cannot connect to OBC on %s:%d. Is it running?\n",
                 OBC_HOST, OBC_PORT);
         return 1;
     }
-    printf("[GROUND] Connected to OBC.\n");
+    printf("Connected to OBC.\n");
 
     pthread_t t_tm;
     pthread_create(&t_tm, NULL, tm_receiver, (void*)(intptr_t)obc_fd);
@@ -93,8 +91,8 @@ int main(void)
         switch (choice) {
             case 0:
                 if (ground_state == SYS_IDLE) {
-                    printf("[GROUND] Closing ground station. Satellite in IDLE.\n");
                     link_close(obc_fd);
+                    pthread_join(t_tm, NULL);
                     return 0;
                 } else if (ground_state == SYS_DOWNLINK) {
                     printf("Cannot exit: satellite is in DOWNLINK. Stop downlink first (3), then deactivate (4).\n");
@@ -107,7 +105,7 @@ int main(void)
                 if (ground_state == SYS_IDLE) {
                     send_tc(PUS_SVC_MODE_CTRL, PUS_TC_ACTIVATE);
                     ground_state = SYS_ACTIVE;
-                    usleep(500000);
+                    platform_delay_ms(500);
                 } else {
                     printf("Cannot activate: state is %s\n", state_to_string(ground_state));
                 }
@@ -117,7 +115,7 @@ int main(void)
                 if (ground_state == SYS_ACTIVE) {
                     send_tc(PUS_SVC_MODE_CTRL, PUS_TC_START_DOWNLINK);
                     ground_state = SYS_DOWNLINK;
-                    usleep(500000);
+                    platform_delay_ms(500);
                 } else {
                     printf("Cannot start downlink: state is %s\n", state_to_string(ground_state));
                 }
@@ -127,7 +125,7 @@ int main(void)
                 if (ground_state == SYS_DOWNLINK) {
                     send_tc(PUS_SVC_MODE_CTRL, PUS_TC_STOP_DOWNLINK);
                     ground_state = SYS_ACTIVE;
-                    usleep(500000);
+                    platform_delay_ms(500);
                 } else {
                     printf("Cannot stop downlink: state is %s\n", state_to_string(ground_state));
                 }
@@ -137,7 +135,7 @@ int main(void)
                 if (ground_state == SYS_ACTIVE) {
                     send_tc(PUS_SVC_MODE_CTRL, PUS_TC_DEACTIVATE);
                     ground_state = SYS_IDLE;
-                    usleep(500000);
+                    platform_delay_ms(500);
                 } else {
                     printf("Cannot deactivate: state is %s\n", state_to_string(ground_state));
                 }

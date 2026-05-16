@@ -5,6 +5,7 @@
 #include <time.h>
 #include "system.h"
 #include "tc_handler.h"
+#include "tm_manager.h"
 #include "link.h"
 
 // Shared with tm_sender_task: current ground socket fd, -1 if no ground connected
@@ -23,10 +24,14 @@ int main(void)
     pthread_create(&t_health,     NULL, health_task,     NULL);
     pthread_create(&t_tm_sender,  NULL, tm_sender_task,  (void*)&ground_fd);
 
+    int server_fd = link_obc_init();
+    if (server_fd < 0)
+        return 1;
+
     // Accept ground connections indefinitely — satellite keeps running between sessions
     while (1) {
         printf("\nListening for ground station on port %d...\n", OBC_PORT);
-        int fd = link_obc_listen();
+        int fd = link_obc_accept(server_fd);
         if (fd < 0) {
             fprintf(stderr, "Accept failed, retrying...\n");
             continue;

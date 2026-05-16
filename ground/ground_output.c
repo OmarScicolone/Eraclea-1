@@ -2,17 +2,6 @@
 #include "pus.h"
 #include <stdio.h>
 
-static const char* tc_describe(uint8_t svc, uint8_t sub)
-{
-    if (svc == PUS_SVC_TEST      && sub == PUS_TC_ARE_YOU_ALIVE)   return "Connection Test: Are-You-Alive";
-    if (svc == PUS_SVC_HK        && sub == PUS_TC_HK_REQUEST)      return "Housekeeping: Report Request";
-    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_ACTIVATE)        return "Mode Control: Activate";
-    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_START_DOWNLINK)  return "Mode Control: Start Downlink";
-    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_STOP_DOWNLINK)   return "Mode Control: Stop Downlink";
-    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_DEACTIVATE)      return "Mode Control: Deactivate";
-    return "Unknown TC";
-}
-
 void print_tm_output(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t len)
 {
     // ── Service 1 — Request Verification ─────────────────────────────────────
@@ -22,7 +11,7 @@ void print_tm_output(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t l
             uint8_t tc_svc = data[0];
             uint8_t tc_sub = data[1];
             printf("\nTM [%d,%d] <- Verification: TC [%d,%d] %s  (%s)\n",
-                   service, subtype, tc_svc, tc_sub, verdict, tc_describe(tc_svc, tc_sub));
+                   service, subtype, tc_svc, tc_sub, verdict, pus_tc_describe(tc_svc, tc_sub));
         } else {
             printf("\nTM [%d,%d] <- Verification: %s\n", service, subtype, verdict);
         }

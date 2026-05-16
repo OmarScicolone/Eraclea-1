@@ -16,14 +16,15 @@ void system_start_downlink(void);  // ACTIVE → DOWNLINK
 void system_stop_downlink(void);   // DOWNLINK → ACTIVE
 
 system_state_t system_get_state(void);
-uint32_t       system_get_uptime(void);       // seconds since last ACTIVATE
-uint8_t        system_build_hk_report(uint8_t* buf); // fills 12 bytes, returns 12
+uint32_t       system_get_uptime(void);
+
+#define HK_REPORT_LEN 12
+void system_build_hk_report(uint8_t* buf);  // fills HK_REPORT_LEN bytes
 
 // ── OBC tasks (RTOS-like threads) ─────────────────────────────────────────────
 
 void* sensor_task(void* arg);
 void* processing_task(void* arg);
 void* health_task(void* arg);
-void* tm_sender_task(void* arg);   // arg = _Atomic int* ground_fd
 
 #endif
