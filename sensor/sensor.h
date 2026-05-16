@@ -6,5 +6,7 @@
 
 void sensor_init(void);
 int sensor_read(int *data);
+int sensor_get_ok_count(void);
+int sensor_get_error_count(void);
 
 #endif

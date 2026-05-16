@@ -17,12 +17,13 @@ static tm_packet_t tm_buffer[TM_BUFFER_SIZE];
 static int head = 0;
 static int tail = 0;
 static int count = 0;
+static int sent_count = 0;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 void tm_buffer_init(void)
 {
     pthread_mutex_lock(&lock);
-    head = tail = count = 0;
+    head = tail = count = sent_count = 0;
     memset(tm_buffer, 0, sizeof(tm_buffer));
     pthread_mutex_unlock(&lock);
 }
@@ -73,11 +74,20 @@ int tm_buffer_pop(uint8_t* service, uint8_t* subtype, uint8_t* data, uint16_t* l
 
     tail = (tail + 1) % TM_BUFFER_SIZE;
     count--;
+    sent_count++;
 
     printf("[TM_MGR] Popped TM (srv=%d, sub=%d, len=%d)\n", *service, *subtype, *len);
 
     pthread_mutex_unlock(&lock);
     return TM_OK;
+}
+
+int tm_get_sent_count(void)
+{
+    pthread_mutex_lock(&lock);
+    int s = sent_count;
+    pthread_mutex_unlock(&lock);
+    return s;
 }
 
 void send_tm(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t len)

@@ -52,6 +52,14 @@ int buffer_pop(int *data)
     return BUFFER_OK;
 }
 
+int buffer_get_count(void)
+{
+    pthread_mutex_lock(&lock);
+    int c = count;
+    pthread_mutex_unlock(&lock);
+    return c;
+}
+
 int buffer_get_overflow_count(void)
 {
     pthread_mutex_lock(&lock);

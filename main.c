@@ -21,7 +21,7 @@ static void send_tc(uint8_t service, uint8_t subtype)
 
 int main(void)
 {
-    printf("ERACLEA-1 Satellite Control Interface starting... 🛰️\n");
+    printf("ERACLEA-1 Ground Control starting... 🛰️\n");
 
     srand(time(NULL));
     system_init();
@@ -35,21 +35,20 @@ int main(void)
         int choice = get_user_command();
 
         switch (choice) {
-            case 0: // Exit
-                printf("Exiting ERACLEA-1 Control Interface. Goodbye!\n");
+            case 0: // Exit — close ground station, satellite stays in current state
+                printf("Closing ground station...\n");
                 if (threads_created) {
-                    printf("Shutting down satellite systems...\n");
-                    send_tc(1, 3); // Service 1, Sub 3: Shutdown
+                    system_shutdown(); // internal cleanup only, not a satellite TC
                     pthread_join(t_sensor, NULL);
                     pthread_join(t_processing, NULL);
                     pthread_join(t_health, NULL);
                     pthread_join(t_tm_sender, NULL);
                 }
+                printf("Ground station offline. Satellite remains in orbit.\n");
                 return 0;
 
-            case 1: // Activate
+            case 1: // Activate (IDLE → ACTIVE)
                 if (system_get_state() == SYS_IDLE) {
-                    printf("Sending ACTIVATE command...\n");
                     if (!threads_created) {
                         pthread_create(&t_sensor,     NULL, sensor_task,     NULL);
                         pthread_create(&t_processing, NULL, processing_task, NULL);
@@ -57,52 +56,49 @@ int main(void)
                         pthread_create(&t_tm_sender,  NULL, tm_sender_task,  NULL);
                         threads_created = 1;
                     }
-                    send_tc(1, 1); // Service 1, Sub 1: Switch ON
+                    send_tc(1, 1); // Service 1, Sub 1: Activate
                 } else {
                     printf("⚠️  Cannot activate: satellite not in IDLE state!\n");
                 }
                 break;
 
-            case 2: // Enable Data
+            case 2: // Start Downlink (ACTIVE → DOWNLINK)
                 {
                     system_state_t st = system_get_state();
                     if (st == SYS_ACTIVE) {
-                        printf("Sending ENABLE DATA command...\n");
-                        send_tc(1, 2); // Service 1, Sub 2: Enable Data
-                    } else if (st == SYS_DATA_ENABLED) {
-                        printf("⚠️  Data acquisition already enabled!\n");
+                        send_tc(1, 2); // Service 1, Sub 2: Start Downlink
+                    } else if (st == SYS_DOWNLINK) {
+                        printf("⚠️  Downlink already active!\n");
                     } else {
-                        printf("⚠️  Cannot enable data: satellite must be ACTIVE first!\n");
+                        printf("⚠️  Cannot start downlink: satellite must be ACTIVE first!\n");
                     }
                 }
                 break;
 
-            case 3: // Disable Data
+            case 3: // Stop Downlink (DOWNLINK → ACTIVE)
                 {
                     system_state_t st = system_get_state();
-                    if (st == SYS_DATA_ENABLED) {
-                        printf("Sending DISABLE DATA command...\n");
-                        send_tc(1, 4); // Service 1, Sub 4: Disable Data
+                    if (st == SYS_DOWNLINK) {
+                        send_tc(1, 4); // Service 1, Sub 4: Stop Downlink
                     } else if (st == SYS_ACTIVE) {
-                        printf("⚠️  Data acquisition is not enabled!\n");
+                        printf("⚠️  Downlink is not active!\n");
                     } else {
-                        printf("⚠️  Cannot disable data: satellite is not ACTIVE!\n");
+                        printf("⚠️  Cannot stop downlink: satellite is not in DOWNLINK state!\n");
                     }
                 }
                 break;
 
-            case 4: // Enter Idle
+            case 4: // Deactivate (ACTIVE → IDLE)
                 if (!threads_created) {
                     printf("⚠️  Satellite not running!\n");
                     break;
                 }
                 {
                     system_state_t st = system_get_state();
-                    if (st == SYS_DATA_ENABLED) {
-                        printf("⚠️  Disable data acquisition first!\n");
+                    if (st == SYS_DOWNLINK) {
+                        printf("⚠️  Stop downlink first!\n");
                     } else if (st == SYS_ACTIVE) {
-                        printf("Sending ENTER IDLE command...\n");
-                        send_tc(1, 5); // Service 1, Sub 5: Enter Idle
+                        send_tc(1, 5); // Service 1, Sub 5: Deactivate
                     } else {
                         printf("⚠️  Already in idle or unavailable state.\n");
                     }

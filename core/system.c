@@ -4,15 +4,17 @@
 #include "buffer.h"
 #include "platform.h"
 #include "tm_manager.h"
-#include "ground_sim.h"
+#include "link.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
-// Forward declaration
+// Forward declaration (defined in tm_manager.c)
 void send_tm(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t len);
 
 static system_state_t current_state;
-static int error_flag = 0;
+static time_t activate_time = 0;
 
 static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -25,44 +27,43 @@ void system_init(void)
     printf("[SYSTEM] Initialized - Idle\n");
 }
 
-void system_power_on(void)
+void system_activate(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_IDLE) {
         current_state = SYS_ACTIVE;
-        error_flag = 0;
-        printf("[SYSTEM] Active - Ready for data acquisition\n");
+        activate_time = time(NULL);
+        printf("[SYSTEM] ACTIVE - Acquiring sensor data onboard\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
 
-void system_in_idle(void)
+void system_deactivate(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_ACTIVE) {
         current_state = SYS_IDLE;
-        error_flag = 0;
-        printf("[SYSTEM] Idle - Systems standby\n");
+        printf("[SYSTEM] IDLE - Satellite in standby\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
 
-void system_enable_data(void)
+void system_start_downlink(void)
 {
     pthread_mutex_lock(&state_mutex);
     if (current_state == SYS_ACTIVE) {
-        current_state = SYS_DATA_ENABLED;
-        printf("[SYSTEM] Data acquisition ENABLED\n");
+        current_state = SYS_DOWNLINK;
+        printf("[SYSTEM] DOWNLINK - Transmitting data to ground station\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
 
-void system_disable_data(void)
+void system_stop_downlink(void)
 {
     pthread_mutex_lock(&state_mutex);
-    if (current_state == SYS_DATA_ENABLED) {
+    if (current_state == SYS_DOWNLINK) {
         current_state = SYS_ACTIVE;
-        printf("[SYSTEM] Data acquisition DISABLED\n");
+        printf("[SYSTEM] ACTIVE - Downlink stopped, still acquiring\n");
     }
     pthread_mutex_unlock(&state_mutex);
 }
@@ -71,7 +72,7 @@ void system_shutdown(void)
 {
     pthread_mutex_lock(&state_mutex);
     current_state = SYS_SHUTDOWN;
-    printf("[SYSTEM] Shutdown initiated\n");
+    printf("[SYSTEM] Simulation shutdown\n");
     pthread_mutex_unlock(&state_mutex);
 }
 
@@ -81,18 +82,6 @@ system_state_t system_get_state(void)
     system_state_t state = current_state;
     pthread_mutex_unlock(&state_mutex);
     return state;
-}
-
-const char* state_to_string(system_state_t state)
-{
-    switch (state) {
-        case SYS_IDLE: return "SYS_IDLE";
-        case SYS_ACTIVE: return "SYS_ACTIVE";
-        case SYS_DATA_ENABLED: return "SYS_DATA_ENABLED";
-        case SYS_ERROR: return "SYS_ERROR";
-        case SYS_SHUTDOWN: return "SYS_SHUTDOWN";
-        default: return "UNKNOWN";
-    }
 }
 
 void* sensor_task(void* arg)
@@ -110,9 +99,7 @@ void* sensor_task(void* arg)
                 break;
 
             case SYS_ACTIVE:
-                break;
-
-            case SYS_DATA_ENABLED:
+            case SYS_DOWNLINK:
                 if (sensor_read(&data) == SENSOR_OK) {
                     buffer_push(data);
                 }
@@ -141,7 +128,10 @@ void* processing_task(void* arg)
         system_state_t state = current_state;
         pthread_mutex_unlock(&state_mutex);
 
-        if (state == SYS_DATA_ENABLED) {
+        if (state == SYS_SHUTDOWN)
+            return NULL;
+
+        if (state == SYS_DOWNLINK) {
             if (buffer_pop(&data) == 0) {
                 printf("[PROCESS] data: %d\n", data);
                 uint8_t tm_data[2];
@@ -149,8 +139,6 @@ void* processing_task(void* arg)
                 tm_data[1] = (uint8_t)((data >> 8) & 0xFF);
                 send_tm(130, 1, tm_data, 2);
             }
-        } else if (state == SYS_SHUTDOWN) {
-            return NULL;
         }
 
         platform_delay_ms(1500);
@@ -171,11 +159,31 @@ void* health_task(void* arg)
         if (state == SYS_SHUTDOWN)
             return NULL;
 
-        if (state == SYS_DATA_ENABLED) {
-            uint8_t hk_data[2];
-            hk_data[0] = (uint8_t)(buffer_get_overflow_count() & 0xFF);
-            hk_data[1] = 0;
-            send_tm(3, 25, hk_data, 2);
+        if (state == SYS_DOWNLINK) {
+            uint32_t uptime = (activate_time > 0)
+                              ? (uint32_t)difftime(time(NULL), activate_time)
+                              : 0;
+            uint16_t sensor_ok  = (uint16_t)sensor_get_ok_count();
+            uint16_t sensor_err = (uint16_t)sensor_get_error_count();
+            uint8_t  buf_ovf    = (uint8_t)buffer_get_overflow_count();
+            uint8_t  buf_occ    = (uint8_t)buffer_get_count();
+            uint16_t tm_sent    = (uint16_t)tm_get_sent_count();
+
+            uint8_t hk[12];
+            hk[0]  = (uint8_t)(uptime >> 24);
+            hk[1]  = (uint8_t)(uptime >> 16);
+            hk[2]  = (uint8_t)(uptime >> 8);
+            hk[3]  = (uint8_t)(uptime);
+            hk[4]  = (uint8_t)(sensor_ok >> 8);
+            hk[5]  = (uint8_t)(sensor_ok);
+            hk[6]  = (uint8_t)(sensor_err >> 8);
+            hk[7]  = (uint8_t)(sensor_err);
+            hk[8]  = buf_ovf;
+            hk[9]  = buf_occ;
+            hk[10] = (uint8_t)(tm_sent >> 8);
+            hk[11] = (uint8_t)(tm_sent);
+
+            send_tm(3, 25, hk, sizeof(hk));
         }
 
         platform_delay_ms(5000);
@@ -186,7 +194,7 @@ void* health_task(void* arg)
 
 void* tm_sender_task(void* arg)
 {
-    (void)arg;
+    volatile int* fd_ptr = (volatile int*)arg;
     uint8_t service;
     uint8_t subtype;
     uint8_t data[32];
@@ -197,42 +205,28 @@ void* tm_sender_task(void* arg)
         system_state_t state = current_state;
         pthread_mutex_unlock(&state_mutex);
 
-        if (state == SYS_SHUTDOWN) {
+        if (state == SYS_SHUTDOWN)
             return NULL;
-        }
 
-        if (tm_buffer_pop(&service, &subtype, data, &len) == 0) {
-            print_tm_output(service, subtype, data, len);
+        int fd = *fd_ptr;
+        if (fd >= 0 && tm_buffer_pop(&service, &subtype, data, &len) == 0) {
+            pus_packet_t pkt;
+            pkt.header.version = 1;
+            pkt.header.type    = 0; // TM
+            pkt.header.service = service;
+            pkt.header.subtype = subtype;
+            pkt.header.length  = len;
+            memset(pkt.data, 0, sizeof(pkt.data));
+            memcpy(pkt.data, data, len);
+            if (link_send_pkt(fd, &pkt) < 0)
+                printf("[TM_SENDER] Failed to send TM to ground\n");
+            else
+                printf("[TM_SENDER] Sent TM (srv=%d sub=%d len=%d) to ground\n",
+                       service, subtype, len);
         }
 
         platform_delay_ms(2000);
     }
 
     return NULL;
-}
-
-void show_satellite_menu(void)
-{
-    printf("\n");
-    printf("===================== ERACLEA-1 SATELLITE CONTROL =====================\n");
-    printf("  State: %-20s\n", state_to_string(current_state));
-    printf("\n");
-    printf("1) ACTIVATE       - Activate satellite systems\n");
-    printf("2) ENABLE DATA    - Enable data acquisition and processing\n");
-    printf("3) DISABLE DATA   - Disable data acquisition\n");
-    printf("4) ENTER IDLE     - Put the satellite into idle\n");
-    printf("0) EXIT           - Exit the control interface\n");
-    printf("\n");
-    printf("Choose an option (0-4): ");
-}
-
-int get_user_command(void)
-{
-    int choice;
-    if (scanf("%d", &choice) != 1) {
-        while (getchar() != '\n');
-        return COMMAND_INVALID;
-    }
-    while (getchar() != '\n');
-    return choice;
 }

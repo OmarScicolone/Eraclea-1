@@ -1,34 +1,42 @@
-# Compiler
-CC = gcc
-
-# Flags
-CFLAGS = -Wall -Wextra -std=c11 -pthread -Icore -Isensor -Idata -Iplatform -Icomm -Iground -Itasks
+CC     = gcc
+CFLAGS = -Wall -Wextra -std=c11 -pthread \
+         -Icore -Isensor -Idata -Iplatform -Icomm -Iground
 
 LDFLAGS = -pthread
 
-# Nome eseguibile
-TARGET = eraclea1
+OBC_TARGET    = eraclea_obc
+GROUND_TARGET = eraclea_ground
 
-# Trova automaticamente tutti i .c
-SRCS = $(wildcard *.c */*.c)
+OBC_SRCS = \
+    obc_main.c \
+    core/system.c \
+    comm/tc_handler.c \
+    comm/tm_manager.c \
+    comm/link.c \
+    sensor/sensor.c \
+    data/buffer.c \
+    platform/platform.c
 
-# Genera i .o
-OBJS = $(SRCS:.c=.o)
+GROUND_SRCS = \
+    ground_main.c \
+    comm/link.c \
+    ground/ground_sim.c
 
-# Default
-all: $(TARGET)
+OBC_OBJS    = $(OBC_SRCS:.c=.o)
+GROUND_OBJS = $(GROUND_SRCS:.c=.o)
 
-# Link finale
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
+all: $(OBC_TARGET) $(GROUND_TARGET)
 
-# Compilazione singoli file
+$(OBC_TARGET): $(OBC_OBJS)
+	$(CC) $(OBC_OBJS) -o $@ $(LDFLAGS)
+
+$(GROUND_TARGET): $(GROUND_OBJS)
+	$(CC) $(GROUND_OBJS) -o $@ $(LDFLAGS)
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Pulizia
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBC_OBJS) $(GROUND_OBJS) $(OBC_TARGET) $(GROUND_TARGET)
 
-# Rebuild completo
 rebuild: clean all
