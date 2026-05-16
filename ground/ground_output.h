@@ -1,5 +1,5 @@
-#ifndef GROUND_SIM_H
-#define GROUND_SIM_H
+#ifndef GROUND_OUTPUT_H
+#define GROUND_OUTPUT_H
 
 #include <stdint.h>
 

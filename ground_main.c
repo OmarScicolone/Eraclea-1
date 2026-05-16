@@ -1,22 +1,21 @@
+#define _XOPEN_SOURCE 600
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include "link.h"
 #include "pus.h"
-#include "system.h"      // for system_state_t enum
-#include "ground_sim.h"  // for print_tm_output
+#include "ground_output.h"
 
-static int obc_fd = -1;
+static int            obc_fd       = -1;
 static system_state_t ground_state = SYS_IDLE;
 
-static const char* state_str(system_state_t s)
+static const char* state_to_string(system_state_t s)
 {
     switch (s) {
         case SYS_IDLE:     return "IDLE";
         case SYS_ACTIVE:   return "ACTIVE";
         case SYS_DOWNLINK: return "DOWNLINK";
-        case SYS_ERROR:    return "ERROR";
-        case SYS_SHUTDOWN: return "SHUTDOWN";
         default:           return "UNKNOWN";
     }
 }
@@ -31,7 +30,7 @@ static void send_tc(uint8_t service, uint8_t subtype)
     pkt.header.length  = 0;
     memset(pkt.data, 0, sizeof(pkt.data));
     if (link_send_pkt(obc_fd, &pkt) < 0)
-        fprintf(stderr, "[GROUND] Failed to send TC\n");
+        fprintf(stderr, "[GROUND] Failed to send TC[%d,%d]\n", service, subtype);
 }
 
 static void* tm_receiver(void* arg)
@@ -50,7 +49,7 @@ static void show_menu(void)
 {
     printf("\n");
     printf("==================== ERACLEA-1 GROUND CONTROL ====================\n");
-    printf("  Satellite state: %-20s\n", state_str(ground_state));
+    printf("  Satellite state: %-20s\n", state_to_string(ground_state));
     printf("\n");
     printf("1) ACTIVATE         - Activate satellite (IDLE -> ACTIVE)\n");
     printf("2) START DOWNLINK   - Begin data transmission (ACTIVE -> DOWNLINK)\n");
@@ -98,45 +97,49 @@ int main(void)
                     link_close(obc_fd);
                     return 0;
                 } else if (ground_state == SYS_DOWNLINK) {
-                    printf("  Cannot exit: satellite is in DOWNLINK. Stop downlink first (3), then deactivate (4).\n");
+                    printf("Cannot exit: satellite is in DOWNLINK. Stop downlink first (3), then deactivate (4).\n");
                 } else {
-                    printf("  Cannot exit: satellite is ACTIVE. Deactivate it first (4).\n");
+                    printf("Cannot exit: satellite is ACTIVE. Deactivate it first (4).\n");
                 }
                 break;
 
             case 1:
                 if (ground_state == SYS_IDLE) {
-                    send_tc(1, 1);
+                    send_tc(PUS_SVC_MODE_CTRL, PUS_TC_ACTIVATE);
                     ground_state = SYS_ACTIVE;
+                    usleep(500000);
                 } else {
-                    printf("  Cannot activate: state is %s\n", state_str(ground_state));
+                    printf("Cannot activate: state is %s\n", state_to_string(ground_state));
                 }
                 break;
 
             case 2:
                 if (ground_state == SYS_ACTIVE) {
-                    send_tc(1, 2);
+                    send_tc(PUS_SVC_MODE_CTRL, PUS_TC_START_DOWNLINK);
                     ground_state = SYS_DOWNLINK;
+                    usleep(500000);
                 } else {
-                    printf("  Cannot start downlink: state is %s\n", state_str(ground_state));
+                    printf("Cannot start downlink: state is %s\n", state_to_string(ground_state));
                 }
                 break;
 
             case 3:
                 if (ground_state == SYS_DOWNLINK) {
-                    send_tc(1, 4);
+                    send_tc(PUS_SVC_MODE_CTRL, PUS_TC_STOP_DOWNLINK);
                     ground_state = SYS_ACTIVE;
+                    usleep(500000);
                 } else {
-                    printf("  Cannot stop downlink: state is %s\n", state_str(ground_state));
+                    printf("Cannot stop downlink: state is %s\n", state_to_string(ground_state));
                 }
                 break;
 
             case 4:
                 if (ground_state == SYS_ACTIVE) {
-                    send_tc(1, 5);
+                    send_tc(PUS_SVC_MODE_CTRL, PUS_TC_DEACTIVATE);
                     ground_state = SYS_IDLE;
+                    usleep(500000);
                 } else {
-                    printf("  Cannot deactivate: state is %s\n", state_str(ground_state));
+                    printf("Cannot deactivate: state is %s\n", state_to_string(ground_state));
                 }
                 break;
 

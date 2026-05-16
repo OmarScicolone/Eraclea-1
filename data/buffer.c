@@ -1,19 +1,19 @@
 #include "buffer.h"
 #include <pthread.h>
-#include <stdio.h>
 
 static int buffer[BUFFER_SIZE];
-static int head = 0;
-static int tail = 0;
-static int count = 0;
+static int head           = 0;
+static int tail           = 0;
+static int count          = 0;
 static int overflow_count = 0;
 
-static pthread_mutex_t lock;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 void buffer_init(void)
 {
-    head = tail = count = 0;
-    pthread_mutex_init(&lock, NULL);
+    pthread_mutex_lock(&lock);
+    head = tail = count = overflow_count = 0;
+    pthread_mutex_unlock(&lock);
 }
 
 int buffer_push(int data)
@@ -23,29 +23,32 @@ int buffer_push(int data)
     buffer[head] = data;
     head = (head + 1) % BUFFER_SIZE;
 
+    int ret;
     if (count == BUFFER_SIZE) {
+        // Buffer full: overwrite oldest sample, advance tail
         tail = (tail + 1) % BUFFER_SIZE;
         overflow_count++;
+        ret = BUFFER_OVERFLOW;
     } else {
         count++;
+        ret = BUFFER_OK;
     }
 
     pthread_mutex_unlock(&lock);
-    return BUFFER_OK;
+    return ret;
 }
 
 int buffer_pop(int *data)
 {
     pthread_mutex_lock(&lock);
 
-    if (count == 0 || !data)
-    {
+    if (count == 0 || !data) {
         pthread_mutex_unlock(&lock);
         return BUFFER_EMPTY;
     }
 
     *data = buffer[tail];
-    tail = (tail + 1) % BUFFER_SIZE;
+    tail  = (tail + 1) % BUFFER_SIZE;
     count--;
 
     pthread_mutex_unlock(&lock);
@@ -66,11 +69,4 @@ int buffer_get_overflow_count(void)
     int ovf = overflow_count;
     pthread_mutex_unlock(&lock);
     return ovf;
-}
-
-void buffer_reset_overflow(void)
-{
-    pthread_mutex_lock(&lock);
-    overflow_count = 0;
-    pthread_mutex_unlock(&lock);
 }

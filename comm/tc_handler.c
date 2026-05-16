@@ -1,74 +1,91 @@
-#include "pus.h"
+#include "tc_handler.h"
+#include "tm_manager.h"
 #include "system.h"
+#include "sensor.h"
+#include "buffer.h"
 #include <stdio.h>
 
-// Forward declaration
-void send_tm(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t len);
+static void ack(uint8_t svc, uint8_t sub) {
+    uint8_t ref[2] = { svc, sub };
+    send_tm(PUS_SVC_VERIFICATION, PUS_TM_ACCEPT_OK, ref, 2);
+}
+static void nack(uint8_t svc, uint8_t sub) {
+    uint8_t ref[2] = { svc, sub };
+    send_tm(PUS_SVC_VERIFICATION, PUS_TM_ACCEPT_FAIL, ref, 2);
+}
+
+static const char* tc_describe(uint8_t svc, uint8_t sub)
+{
+    if (svc == PUS_SVC_TEST      && sub == PUS_TC_ARE_YOU_ALIVE)   return "Connection Test: Are-You-Alive";
+    if (svc == PUS_SVC_HK        && sub == PUS_TC_HK_REQUEST)      return "Housekeeping: Report Request";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_ACTIVATE)        return "Mode Control: Activate";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_START_DOWNLINK)  return "Mode Control: Start Downlink";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_STOP_DOWNLINK)   return "Mode Control: Stop Downlink";
+    if (svc == PUS_SVC_MODE_CTRL && sub == PUS_TC_DEACTIVATE)      return "Mode Control: Deactivate";
+    return "Unknown TC";
+}
 
 void handle_tc(pus_packet_t* pkt)
 {
     if (!pkt) return;
 
-    switch (pkt->header.service)
-    {
-        case 1: // Power / mode control
-            switch (pkt->header.subtype)
-            {
-                case 1: // Activate (IDLE → ACTIVE)
-                    printf("[TC] ACTIVATE command received\n");
+    uint8_t svc = pkt->header.service;
+    uint8_t sub = pkt->header.subtype;
+
+    printf("\nTC [%d,%d] <- %s\n", svc, sub, tc_describe(svc, sub));
+
+    switch (svc) {
+
+        // ── Service 17 — Connection Test ─────────────────────────────────────
+        case PUS_SVC_TEST:
+            if (sub == PUS_TC_ARE_YOU_ALIVE) {
+                send_tm(PUS_SVC_TEST, PUS_TM_I_AM_ALIVE, NULL, 0);
+            } else {
+                nack(svc, sub);
+            }
+            break;
+
+        // ── Service 3 — Housekeeping (on-demand report) ───────────────────────
+        case PUS_SVC_HK:
+            if (sub == PUS_TC_HK_REQUEST) {
+                uint8_t hk[12];
+                uint8_t len = system_build_hk_report(hk);
+                send_tm(PUS_SVC_HK, PUS_TM_HK_REPORT, hk, len);
+                ack(svc, sub);
+            } else {
+                nack(svc, sub);
+            }
+            break;
+
+        // ── Service 128 — Mode Control ────────────────────────────────────────
+        case PUS_SVC_MODE_CTRL:
+            switch (sub) {
+                case PUS_TC_ACTIVATE:
                     system_activate();
-                    send_tm(1, 1, NULL, 0); // ACK
+                    ack(svc, sub);
                     break;
-
-                case 2: // Start Downlink (ACTIVE → DOWNLINK)
-                    printf("[TC] START DOWNLINK command received\n");
+                case PUS_TC_START_DOWNLINK:
                     system_start_downlink();
-                    send_tm(1, 2, NULL, 0); // ACK
+                    ack(svc, sub);
                     break;
-
-                case 3: // Shutdown (internal)
-                    printf("[TC] SHUTDOWN command received\n");
-                    system_shutdown();
-                    send_tm(1, 3, NULL, 0); // ACK
-                    break;
-
-                case 4: // Stop Downlink (DOWNLINK → ACTIVE)
-                    printf("[TC] STOP DOWNLINK command received\n");
+                case PUS_TC_STOP_DOWNLINK:
                     system_stop_downlink();
-                    send_tm(1, 4, NULL, 0); // ACK
+                    ack(svc, sub);
                     break;
-
-                case 5: // Deactivate (ACTIVE → IDLE)
-                    printf("[TC] DEACTIVATE command received\n");
+                case PUS_TC_DEACTIVATE:
                     system_deactivate();
-                    send_tm(1, 5, NULL, 0); // ACK
+                    ack(svc, sub);
                     break;
-
                 default:
-                    printf("[TC] Unknown power control subtype\n");
-                    send_tm(1, 8, NULL, 0); // NACK
+                    printf("  Unknown mode control subtype: %d\n", sub);
+                    nack(svc, sub);
                     break;
             }
             break;
 
-        case 17: // Connection test
-            printf("[TC] Test command received\n");
-            send_tm(1, 1, NULL, 0); // ACK
-            break;
-
-        case 3: // Housekeeping request
-        {
-            printf("[TC] HK request received\n");
-            uint8_t data[2];
-            data[0] = 42; // dummy status
-            data[1] = 0;
-            send_tm(3, 25, data, 2);
-            break;
-        }
-
         default:
-            printf("[TC] Unknown service\n");
-            send_tm(1, 8, NULL, 0); // NACK
+            printf("  Unknown service %d — TC rejected\n", svc);
+            nack(svc, sub);
             break;
     }
 }

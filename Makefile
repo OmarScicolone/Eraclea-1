@@ -20,7 +20,7 @@ OBC_SRCS = \
 GROUND_SRCS = \
     ground_main.c \
     comm/link.c \
-    ground/ground_sim.c
+    ground/ground_output.c
 
 OBC_OBJS    = $(OBC_SRCS:.c=.o)
 GROUND_OBJS = $(GROUND_SRCS:.c=.o)
@@ -37,6 +37,6 @@ $(GROUND_TARGET): $(GROUND_OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBC_OBJS) $(GROUND_OBJS) $(OBC_TARGET) $(GROUND_TARGET)
+	rm -f $(OBC_OBJS) $(GROUND_OBJS) $(OBC_TARGET) $(GROUND_TARGET) eraclea1
 
 rebuild: clean all
