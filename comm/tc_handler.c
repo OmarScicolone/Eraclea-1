@@ -32,6 +32,18 @@ void handle_tc(pus_packet_t* pkt)
                     send_tm(1, 3, NULL, 0); // ACK
                     break;
 
+                case 4: // Disable Data
+                    printf("[TC] DISABLE DATA command received\n");
+                    system_disable_data();
+                    send_tm(1, 4, NULL, 0); // ACK
+                    break;
+
+                case 5: // Enter Idle
+                    printf("[TC] ENTER IDLE command received\n");
+                    system_in_idle();
+                    send_tm(1, 5, NULL, 0); // ACK
+                    break;
+
                 default:
                     printf("[TC] Unknown power control subtype\n");
                     send_tm(1, 8, NULL, 0); // NACK
@@ -58,7 +70,7 @@ void handle_tc(pus_packet_t* pkt)
 
         default:
             printf("[TC] Unknown service\n");
-            send_tm(1, 2, NULL, 0); // NACK
+            send_tm(1, 8, NULL, 0); // NACK
             break;
     }
 }

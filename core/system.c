@@ -39,8 +39,11 @@ void system_power_on(void)
 void system_in_idle(void)
 {
     pthread_mutex_lock(&state_mutex);
-    current_state = SYS_IDLE;
-    error_flag = 0;
+    if (current_state == SYS_ACTIVE) {
+        current_state = SYS_IDLE;
+        error_flag = 0;
+        printf("[SYSTEM] Idle - Systems standby\n");
+    }
     pthread_mutex_unlock(&state_mutex);
 }
 
@@ -96,17 +99,11 @@ void* sensor_task(void* arg)
 {
     (void)arg;
     int data;
-    system_state_t last_state = SYS_IDLE;
 
     while (1) {
         pthread_mutex_lock(&state_mutex);
         system_state_t state = current_state;
         pthread_mutex_unlock(&state_mutex);
-
-        if (state != last_state) {
-            printf("[SYSTEM] State changed to %s\n", state_to_string(state));
-            last_state = state;
-        }
 
         switch (state) {
             case SYS_IDLE:
@@ -165,32 +162,23 @@ void* processing_task(void* arg)
 void* health_task(void* arg)
 {
     (void)arg;
-    int tc_counter = 0;
-    system_state_t last_state = SYS_IDLE;
-    int last_error = 0;
 
     while (1) {
         pthread_mutex_lock(&state_mutex);
         system_state_t state = current_state;
-        int err = error_flag;
         pthread_mutex_unlock(&state_mutex);
 
-        if (state != last_state || err != last_error) {
-            printf("[HEALTH] State: %s | Error: %d\n", state_to_string(state), err);
-            last_state = state;
-            last_error = err;
-        }
-
-        if (state == SYS_DATA_ENABLED && tc_counter++ % 10 == 0) {
-            printf("[HEALTH] Simulating ground command...\n");
-            simulate_ground_tc();
-        }
-
-        if (state == SYS_SHUTDOWN) {
+        if (state == SYS_SHUTDOWN)
             return NULL;
+
+        if (state == SYS_DATA_ENABLED) {
+            uint8_t hk_data[2];
+            hk_data[0] = (uint8_t)(buffer_get_overflow_count() & 0xFF);
+            hk_data[1] = 0;
+            send_tm(3, 25, hk_data, 2);
         }
 
-        platform_delay_ms(1000);
+        platform_delay_ms(5000);
     }
 
     return NULL;
@@ -227,6 +215,7 @@ void show_satellite_menu(void)
 {
     printf("\n");
     printf("===================== ERACLEA-1 SATELLITE CONTROL =====================\n");
+    printf("  State: %-20s\n", state_to_string(current_state));
     printf("\n");
     printf("1) ACTIVATE       - Activate satellite systems\n");
     printf("2) ENABLE DATA    - Enable data acquisition and processing\n");
@@ -234,7 +223,7 @@ void show_satellite_menu(void)
     printf("4) ENTER IDLE     - Put the satellite into idle\n");
     printf("0) EXIT           - Exit the control interface\n");
     printf("\n");
-    printf("Choose an option (0-4): \n");
+    printf("Choose an option (0-4): ");
 }
 
 int get_user_command(void)
