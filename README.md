@@ -121,9 +121,3 @@ eraclea-1/
     └── ground_output.h
 ```
 
-## Notes
-
-- The simulator is designed for educational purposes and to demonstrate embedded systems concepts: multithreading, state machines, socket communication, circular buffers, and inter-process coordination.
-- The OBC remains running and listens for new Ground Station connections even after a session disconnects.
-- Telemetry is only sent when a Ground Station is actively connected (tracked via atomic int `ground_fd`).
-- The Ground Station enforces command sequencing — invalid state transitions are rejected at the console level.
