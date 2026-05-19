@@ -28,6 +28,7 @@ static void send_tc(uint8_t service, uint8_t subtype)
     pkt.header.subtype = subtype;
     pkt.header.length  = 0;
     memset(pkt.data, 0, sizeof(pkt.data));
+    // Send TC packet to OBC over the established connection
     if (link_send_pkt(obc_fd, &pkt) < 0)
         fprintf(stderr, "Failed to send TC[%d,%d]\n", service, subtype);
 }
@@ -36,6 +37,7 @@ static void* tm_receiver(void* arg)
 {
     int fd = (int)(intptr_t)arg;
     pus_packet_t pkt;
+    // BLOCKING: runs in a separate thread, continuously receives TM packets from the satellite
     while (link_recv_pkt(fd, &pkt) == 0) {
         print_tm_output(pkt.header.service, pkt.header.subtype,
                         pkt.data, pkt.header.length);
@@ -73,6 +75,7 @@ int main(void)
 {
     printf("ERACLEA-1 Ground Control starting...\n");
 
+    // BLOCKING: attempts TCP connection to the OBC server on OBC_HOST:OBC_PORT
     obc_fd = link_ground_connect();
     if (obc_fd < 0) {
         fprintf(stderr, "Cannot connect to OBC on %s:%d. Is it running?\n",
@@ -81,6 +84,7 @@ int main(void)
     }
     printf("Connected to OBC.\n");
 
+    // Start receiving telemetry in a background thread while main thread handles user input
     pthread_t t_tm;
     pthread_create(&t_tm, NULL, tm_receiver, (void*)(intptr_t)obc_fd);
 
@@ -91,6 +95,7 @@ int main(void)
         switch (choice) {
             case 0:
                 if (ground_state == SYS_IDLE) {
+                    // Gracefully close the connection to OBC and wait for TM receiver thread to exit
                     link_close(obc_fd);
                     pthread_join(t_tm, NULL);
                     return 0;

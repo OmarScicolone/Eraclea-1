@@ -38,6 +38,7 @@ $(GROUND_TARGET): $(GROUND_OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBC_OBJS) $(GROUND_OBJS) $(OBC_TARGET) $(GROUND_TARGET) eraclea1
+	find . -name "*.o" -delete
+	rm -f $(OBC_TARGET) $(GROUND_TARGET) eraclea1
 
 rebuild: clean all

@@ -20,22 +20,22 @@ static int              head       = 0;
 static int              tail       = 0;
 static int              count      = 0;
 static int              sent_count = 0;
-static pthread_mutex_t  lock       = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t  tm_lock    = PTHREAD_MUTEX_INITIALIZER;
 
 void tm_buffer_init(void)
 {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&tm_lock);
     head = tail = count = sent_count = 0;
     memset(tm_buffer, 0, sizeof(tm_buffer));
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&tm_lock);
 }
 
 static int tm_buffer_push(uint8_t service, uint8_t subtype, uint8_t* data, uint16_t len)
 {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&tm_lock);
 
     if (count >= TM_BUFFER_SIZE) {
-        pthread_mutex_unlock(&lock);
+        pthread_mutex_unlock(&tm_lock);
         printf("[TM] Buffer full — packet dropped (srv=%d sub=%d)\n", service, subtype);
         return TM_FULL;
     }
@@ -51,16 +51,16 @@ static int tm_buffer_push(uint8_t service, uint8_t subtype, uint8_t* data, uint1
     head = (head + 1) % TM_BUFFER_SIZE;
     count++;
 
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&tm_lock);
     return TM_OK;
 }
 
 static int tm_buffer_pop(uint8_t* service, uint8_t* subtype, uint8_t* data, uint16_t* len)
 {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&tm_lock);
 
     if (count == 0 || !service || !subtype || !len) {
-        pthread_mutex_unlock(&lock);
+        pthread_mutex_unlock(&tm_lock);
         return TM_EMPTY;
     }
 
@@ -74,15 +74,15 @@ static int tm_buffer_pop(uint8_t* service, uint8_t* subtype, uint8_t* data, uint
     count--;
     sent_count++;
 
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&tm_lock);
     return TM_OK;
 }
 
 int tm_get_sent_count(void)
 {
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&tm_lock);
     int s = sent_count;
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&tm_lock);
     return s;
 }
 
